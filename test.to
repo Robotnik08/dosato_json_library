@@ -1,5 +1,5 @@
 // import your library
-import "my_lib"
+import "json"
 
 make result = sumTest(1, 2)
 do sayln(result) // 3

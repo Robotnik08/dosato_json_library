@@ -1,5 +1,3 @@
 .vscode
 *.o
-my_lib.dll
-libdosato.dll
-dosato.h
+json.dll

@@ -18,7 +18,7 @@ SRCS = main.c
 OBJS = $(SRCS:.c=.o)
 
 # Target
-TARGET = my_lib
+TARGET = json
 
 # Detect OS
 ifeq ($(OS),Windows_NT)
