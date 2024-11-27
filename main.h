@@ -10,7 +10,12 @@ void init(void* vm);
 // each library must have a dosatoFunctionMapList called functions
 DosatoFunctionMapList functions;
 
-// function forward declaration
-Value sumTest (ValueArray args, bool debug);
+Value json_to_string(ValueArray args, bool debug);
+Value json_parse(ValueArray args, bool debug);
+
+char* ObjectToString (Value value);
+char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count);
+Value string_to_json(char* str, int length);
+
 
 #endif // MAIN_H
