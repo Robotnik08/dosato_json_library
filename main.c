@@ -304,280 +304,119 @@ Value string_to_json(char* str, int length) {
         return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
     }
 
-    // // loop through the string and parse it
-    // // check first character
-    // while (str[0] == ' ' || str[0] == '\n' || str[0] == '\r' || str[0] == '\t') {
-    //     str++;
-    //     length--;
-    // }
+    JSON_Token* tokens = malloc(sizeof(JSON_Token));
+    size_t token_count = 0;
 
-    // #define SKIP_UNTIL_NON_WHITESPACE(i) \
-    //     do { \
-    //         while (str[i] == ' ' || str[i] == '\n' || str[i] == '\r' || str[i] == '\t') { \
-    //             i++; \
-    //         } \
-    //     } while (0)
+    #define ADD_TOKEN(type, length) do { \
+        tokens = realloc(tokens, (token_count + 1) * sizeof(JSON_Token)); \
+        tokens[token_count++] = (JSON_Token){str + i, length, type}; \
+    } while (0)
 
-    // #define SKIP_BLOCK(i) \
-    //     do { \
-    //         int block_count = 1; \
-    //         char block_type = str[i]; \
-    //                 printf("%c, %d\n", str[i], i); \
-    //         switch (block_type) { \
-    //             case '{': block_type = '}'; break; \
-    //             case '[': block_type = ']'; break; \
-    //             default: block_type = '\0'; break; \
-    //         } \
-    //         if (block_type == '\0') { \
-    //             break; \
-    //         } \
-    //         int start = i; \
-    //         int escape_count = 0; \
-    //         bool in_string = false; \
-    //         for (int j = start + 1; j < length; j++) { \
-    //             if (str[j] == block_type) { \
-    //                 block_count--; \
-    //                 if (block_count == 0) { \
-    //                     i = j + 1; \
-    //                     break; \
-    //                 } \
-    //             } else if (str[j] == str[start]) { \
-    //                 block_count++; \
-    //             } \
-    //         } \
-    //     } while (0)
+    // tokenize the string
+    for (size_t i = 0; i < length; i++) {
+        switch (str[i]) {
+            case '{': ADD_TOKEN(JSON_TokenType_ObjectStart, 1); break;
+            case '}': ADD_TOKEN(JSON_TokenType_ObjectEnd, 1); break;
+            case '[': ADD_TOKEN(JSON_TokenType_ArrayStart, 1); break;
+            case ']': ADD_TOKEN(JSON_TokenType_ArrayEnd, 1); break;
+            case ':': ADD_TOKEN(JSON_TokenType_Colon, 1); break;
+            case ',': ADD_TOKEN(JSON_TokenType_Comma, 1); break;
+            case '\"': {
+                size_t j = i + 1;
+                while (j < length && str[j] != '\"') {
+                    if (str[j] == '\\') {
+                        j++;
+                    }
+                    j++;
+                }
+                if (j == length) {
+                    return BUILD_EXCEPTION(E_UNCLOSED_STRING_LITERAL);
+                }
+                ADD_TOKEN(JSON_TokenType_String, j - i + 1);
+                i = j;
+                break;
+            }
+            case 't': {
+                if (i + 4 < length && strncmp(str + i, "true", 4) == 0) {
+                    ADD_TOKEN(JSON_TokenType_Boolean, 4);
+                    i += 3;
+                } else {
+                    return BUILD_EXCEPTION(E_INVALID_EXPRESSION);
+                }
+                break;
+            }
+            case 'f': {
+                if (i + 5 < length && strncmp(str + i, "false", 5) == 0) {
+                    ADD_TOKEN(JSON_TokenType_Boolean, 5);
+                    i += 4;
+                } else {
+                    return BUILD_EXCEPTION(E_INVALID_EXPRESSION);
+                }
+                break;
+            }
+            case 'n': {
+                if (i + 4 < length && strncmp(str + i, "null", 4) == 0) {
+                    ADD_TOKEN(JSON_TokenType_Null, 4);
+                    i += 3;
+                } else {
+                    return BUILD_EXCEPTION(E_INVALID_EXPRESSION);
+                }
+                break;
+            }
+            case ' ': case '\t': case '\n': case '\r': break;
+            default: {
+                size_t j = i;
+                while (j < length && (str[j] == '-' || (str[j] >= '0' && str[j] <= '9') || str[j] == '.')) {
+                    j++;
+                }
+                ADD_TOKEN(JSON_TokenType_Number, j - i);
+                i = j - 1;
+                break;
+            }
+        }
+    }
 
-    // switch (str[0]) {
-    //     case '{': { // object
-    //         ValueObject* object = malloc(sizeof(ValueObject));
-    //         init_ValueObject(object);
+    #undef ADD_TOKEN
 
-    //         int i = 1;
-    //         for (; i < length; i++) {
-    //             SKIP_UNTIL_NON_WHITESPACE(i);
-    //             if (str[i] == '\"') {
-    //                 // key
-    //                 char* key = NULL;
-    //                 int escape_count = 0;
-    //                 for (int j = i + 1; j < length; j++) {
-    //                     if (str[j] == '\"' && escape_count % 2 == 0) {
-    //                         key = malloc(j - i + 1);
-    //                         strncpy(key, str + i, j - i);
-    //                         key[j - i] = '\0';
-    //                         i = j + 1;
-    //                         break;
-    //                     } else if (str[j] == '\\') {
-    //                         escape_count++;
-    //                     }
-    //                 }
-    //                 if (key == NULL) {
-    //                     return BUILD_EXCEPTION(E_UNCLOSED_STRING_LITERAL);
-    //                 }
+    // parse the tokens
+    Value value = parse_tokens(tokens, token_count);
 
-    //                 SKIP_UNTIL_NON_WHITESPACE(i);
-    //                 if (str[i++] != ':') {
-    //                     return BUILD_EXCEPTION(E_EXPECTED_COLON_OPERATOR);
-    //                 }
-    //                 SKIP_UNTIL_NON_WHITESPACE(i);
-                    
-    //                 int start_value = i;
-    //                 for (int j = i; j < length; j++) {
-    //                     SKIP_BLOCK(j);
-    //                     printf("123: %c, %d\n", str[j], j);
-    //                     if (str[j] == ',' || str[j] == '}') {
-    //                         Value value = string_to_json(str + start_value, j - start_value);
-    //                         if (value.type == TYPE_EXCEPTION) {
-    //                             return value;
-    //                         }
-    //                         write_ValueObject(object, key, value);
-    //                         // add key value pair to object
-    //                         i = j;
-    //                         break;
-    //                     }
-    //                 }
-    //             } else {
-    //                 printf("%c, %d\n", str[i], i);
-    //                 return BUILD_EXCEPTION(E_EXPECTED_STRING);
-    //             }
-    //             if (str[i] == '}') {
-    //                 break;
-    //             }
-    //         }
+    return value;
+}
 
-    //         // check if theres anything after the object
-    //         i++;
-    //         for (;i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
-            
-    //         return BUILD_OBJECT(object);
-    //     }
-    //     case '[': { // array
-    //         ValueArray* array = malloc(sizeof(ValueArray));
-    //         init_ValueArray(array);
-    //         int i = 1;
-    //         for (; i < length; i++) {
-    //             SKIP_UNTIL_NON_WHITESPACE(i);
-    //             int start_value = i;
-    //             for (int j = i; j < length; j++) {
-    //                 SKIP_BLOCK(j);
-    //                 if (str[j] == ',' || str[j] == ']') {
-    //                     Value value = string_to_json(str + start_value, j - start_value);
-    //                     if (value.type == TYPE_EXCEPTION) {
-    //                         return value;
-    //                     }
-    //                     write_ValueArray(array, value);
-    //                     // add value to array
-    //                     i = j;
-    //                     break;
-    //                 }
-    //             }
-    //             if (str[i] == ']') {
-    //                 break;
-    //             }
-    //         }
+#define SKIP_BLOCK do { \
+    size_t block_count = 1; \
+    JSON_TokenType block_type = tokens[i].type; \
+    if (block_type == JSON_TokenType_ObjectStart) { \
+        block_type = JSON_TokenType_ObjectEnd; \
+    } else if (block_type == JSON_TokenType_ArrayStart) { \
+        block_type = JSON_TokenType_ArrayEnd; \
+    } \
+    while (block_count > 0) { \
+        i++; \
+        if (i == count) { \
+            return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN); \
+        } \
+        if (tokens[i].type == JSON_TokenType_ObjectStart || tokens[i].type == JSON_TokenType_ArrayStart) { \
+            block_count++; \
+        } else if (tokens[i].type == JSON_TokenType_ObjectEnd || tokens[i].type == JSON_TokenType_ArrayEnd) { \
+            block_count--; \
+        } \
+    } \
+} while (0)
 
-    //         // check if theres anything after the array
-    //         for (; i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
+Value parse_tokens(JSON_Token* tokens, size_t count) {
+    if (count == 0) {
+        return BUILD_EXCEPTION(E_EMPTY_MESSAGE);
+    }
 
-    //         return BUILD_ARRAY(array);
-
-    //         break;
-    //     }
-    //     case '\"': { // string
-    //         char* value = NULL;
-    //         int escape_count = 0;
-    //         int i = 1;
-    //         for (; i < length; i++) {
-    //             if (str[i] == '\"' && escape_count % 2 == 0) {
-    //                 value = malloc(i - 1);
-    //                 strncpy(value, str + 1, i - 1);
-    //                 value[i - 1] = '\0';
-    //                 i++;
-    //                 break;
-    //             } else if (str[i] == '\\') {
-    //                 escape_count++;
-    //             }
-    //         }
-    //         if (value == NULL) {
-    //             return BUILD_EXCEPTION(E_UNCLOSED_STRING_LITERAL);
-    //         }
-
-    //         // check if theres anything after the string
-    //         for (; i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
-
-    //         return BUILD_STRING(value);
-    //         break;
-    //     }
-    //     case 't': { // true
-    //         if (length < 4) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-    //         if (strncmp(str, "true", 4) != 0) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-            
-    //         // check if theres anything after the string
-    //         for (int i = 4; i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
-
-    //         return BUILD_BOOL(true);
-    //     }
-    //     case 'f': { // false
-    //         if (length < 5) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-    //         if (strncmp(str, "false", 5) != 0) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-
-    //         // check if theres anything after the string
-    //         for (int i = 5; i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
-
-    //         return BUILD_BOOL(false);
-    //     }
-    //     case 'n': { // null
-    //         if (length < 4) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-
-    //         if (strncmp(str, "null", 4) != 0) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-
-    //         // check if theres anything after the string
-    //         for (int i = 4; i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
-
-    //         return BUILD_NULL();
-    //     }
-    //     case '0':
-    //     case '1':
-    //     case '2':
-    //     case '3':
-    //     case '4':
-    //     case '5':
-    //     case '6':
-    //     case '7':
-    //     case '8':
-    //     case '9':
-    //     case '-': { // number
-    //         if (length == 0) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-
-    //         char* value = NULL;
-
-    //         for (int i = 0; i < length; i++) {
-    //             if (str[i] == ' ' || str[i] == '\n' || str[i] == '\r' || str[i] == '\t') {
-    //                 value = malloc(i);
-    //                 strncpy(value, str, i);
-    //                 value[i] = '\0';
-    //                 break;
-    //             }
-    //         }
-
-    //         if (value == NULL) {
-    //             return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //         }
-
-    //         // check if theres anything after the string
-    //         for (int i = 0; i < length; i++) {
-    //             if (str[i] != ' ' && str[i] != '\n' && str[i] != '\r' && str[i] != '\t') {
-    //                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
-    //             }
-    //         }
-
-    //         if (strchr(value, '.') != NULL) {
-    //             return BUILD_DOUBLE(atof(value));
-    //         }
-
-    //         return BUILD_LONG(atoll(value));
-    //     }
-    // }
+    size_t i = 0;
+    
 
     return BUILD_NULL();
 }
+
+#undef SKIP_BLOCK
 
 Value json_parse(ValueArray args, bool debug) {
     if (args.count != 1) {

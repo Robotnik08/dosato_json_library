@@ -11,5 +11,5 @@ make json_obj = {
 
 do sayln(json_to_string(json_obj))
 do sayln(json_parse(
-"{\"hello\":\"world\",\"arr\":[1,2,3],\"obj\":{\"key\":\"value\"}}"
+"{\"hello\" : \"world\",    \"arr\":[1    ,2,3   ,44],\"obj\":{\"key\":\"value\"}}"
 ))

@@ -13,9 +13,31 @@ DosatoFunctionMapList functions;
 Value json_to_string(ValueArray args, bool debug);
 Value json_parse(ValueArray args, bool debug);
 
+
+typedef enum {
+    JSON_TokenType_ObjectStart,
+    JSON_TokenType_ObjectEnd,
+    JSON_TokenType_ArrayStart,
+    JSON_TokenType_ArrayEnd,
+    JSON_TokenType_Colon,
+    JSON_TokenType_String,
+    JSON_TokenType_Number,
+    JSON_TokenType_Boolean,
+    JSON_TokenType_Null,
+    JSON_TokenType_Comma
+} JSON_TokenType;
+
+typedef struct {
+    char* start;
+    size_t length;
+    JSON_TokenType type;
+} JSON_Token;
+
 char* ObjectToString (Value value);
 char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count);
 Value string_to_json(char* str, int length);
+Value parse_tokens(JSON_Token* tokens, size_t count);
+
 
 
 #endif // MAIN_H
