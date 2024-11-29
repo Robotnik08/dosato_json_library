@@ -31,7 +31,19 @@ do sayln(json_parse(
 ))
 
 do sayln(json_parse(
+`[]`
+))
+
+do sayln(json_parse(
+`\{}`
+))
+
+do sayln(json_parse(
 `1`
+))
+
+do sayln(json_parse(
+`2.11111`
 ))
 
 do sayln(json_parse(
@@ -70,7 +82,7 @@ do sayln(json_parse(
 
 
 // complex object with NESTED arrays, objects, strings, numbers (floating and ints), booleans, and null
-do sayln(json_parse(
+make obj = json_parse(
 `
 \{
     "hello": "world",
@@ -106,7 +118,23 @@ do sayln(json_parse(
                                 "arr9": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                                 "obj9": \{
                                     "key9": "value9",
-                                    "arr10": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                                    "arr10": [1, 2, 3, 4, 5, 6, \{
+                                        "obj10": \{
+                                            "key10": "value10",
+                                            "arr11": [1, 2, 3, 4, 5, 6, 7, 8, 9, \{
+                                                "obj11": \{
+                                                    "key11": "value11",
+                                                    "arr12": [\{
+                                                        "obj12": \{
+                                                            "key12": "value12",
+                                                            "arr13": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                                                        \},
+                                                        "num": 2.11111
+                                                    }, 2, 3, 4, 5, 6, 7, 8, 9, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+                                                }
+                                            }]
+                                        }
+                                    }, 8, 9, 10]
                                 }
                             }
                         }
@@ -116,4 +144,12 @@ do sayln(json_parse(
         }
     }
 }`
-))
+)
+
+do sayln(obj)
+
+make str = json_to_string(obj)
+
+do sayln(str)
+
+do sayln(json_parse(str))

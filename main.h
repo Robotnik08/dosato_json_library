@@ -42,8 +42,8 @@ typedef struct {
     JSON_TokenType type;
 } JSON_Token;
 
-char* ObjectToString (Value value);
-char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count);
+char* ObjectToString (Value value, bool formatted);
+char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool formatted, int depth);
 Value string_to_json(char* str, int length);
 Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, JSON_NodeType type);
 

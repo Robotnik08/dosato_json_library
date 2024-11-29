@@ -12,16 +12,21 @@ void init(void* vm) {
     write_DosatoFunctionMapList(&functions, (DosatoFunctionMap){"json_parse", json_parse});
 }
 
-char* ObjectToString (Value value) {
+char* ObjectToString (Value value, bool formatted) {
     DosatoObject** pointers = malloc(sizeof(DosatoObject**));
-    char* str = ObjectToStringSafe(value, &pointers, 0);
+    char* str = ObjectToStringSafe(value, &pointers, 0, formatted, 0);
     free(pointers);
     return str;
 }
 
-char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count) {
+char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool formatted, int depth) {
     char* string = malloc(1);
     string[0] = '\0';
+
+    for (int i = 0; i < depth; i++) {
+        string = realloc(string, strlen(string) + 4);
+        strcat(string, "   ");
+    }   
 
     switch (value.type) {
         case TYPE_OBJECT: {
@@ -61,9 +66,13 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count) {
                 strcat(string, "\"");
                 strcat(string, new_str);
                 strcat(string, "\":");
+                if (formatted) {
+                    string = realloc(string, strlen(string) + 2);
+                    strcat(string, " ");
+                }
                 free(new_str);
 
-                char* valueString = ObjectToStringSafe(object->values[i], pointers, count);
+                char* valueString = ObjectToStringSafe(object->values[i], pointers, count, formatted, depth + 1);
                 if (valueString == (char*)-1) {
                     return (char*)-1;
                 }
@@ -73,6 +82,11 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count) {
                     strcat(string, ",");
                 }
                 free(valueString);
+                
+                if (formatted) {
+                    string = realloc(string, strlen(string) + 2);
+                    strcat(string, "\n");
+                }
             }
             string = realloc(string, strlen(string) + 2);
             strcat(string, "}");
@@ -93,7 +107,7 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count) {
             strcat(string, "[");
             ValueArray* array = AS_ARRAY(value);
             for (size_t i = 0; i < array->count; i++) {
-                char* valueString = ObjectToStringSafe(array->values[i], pointers, count);
+                char* valueString = ObjectToStringSafe(array->values[i], pointers, count, formatted, -1);
                 if (valueString == (char*)-1) {
                     return (char*)-1;
                 }
@@ -280,8 +294,15 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count) {
 }
 
 Value json_to_string(ValueArray args, bool debug) {
-    if (args.count != 1) {
+    if (args.count > 2) {
         return BUILD_EXCEPTION(E_WRONG_NUMBER_OF_ARGUMENTS);
+    }
+
+    bool formatted = false;
+    if (args.count == 2) {
+        Value formatted_val = GET_ARG(args, 1);
+        CAST_SAFE(formatted_val, TYPE_BOOL);
+        formatted = AS_BOOL(formatted_val);
     }
 
     Value json_obj = GET_ARG(args, 0);
@@ -289,7 +310,7 @@ Value json_to_string(ValueArray args, bool debug) {
         return BUILD_EXCEPTION(E_INVALID_TYPE);
     }
 
-    char* str = ObjectToString(json_obj);
+    char* str = ObjectToString(json_obj, formatted);
 
     if (str == (char*)-1) {
         PRINT_ERROR("%s", "Attempting to parse circular reference.\n");
@@ -312,7 +333,7 @@ Value string_to_json(char* str, int length) {
         tokens[token_count++] = (JSON_Token){str + i, length, type}; \
     } while (0)
 
-    printf("String: %s\n", str);
+
     // tokenize the string
     for (size_t i = 0; i < length; i++) {
         switch (str[i]) {
@@ -371,7 +392,6 @@ Value string_to_json(char* str, int length) {
                     j++;
                 }
                 if (j == i) {
-                    printf("Unexpected token: %c\n", str[i]);
                     return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
                 }
                 ADD_TOKEN(JSON_TokenType_Number, j - i);
@@ -482,6 +502,10 @@ Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, J
             ValueArray* array = malloc(sizeof(ValueArray));
             init_ValueArray(array);
 
+            if (tokens[i + 1].type == JSON_TokenType_ArrayEnd) {
+                return BUILD_ARRAY(array);
+            }
+
             while (i < end - 1) {
                 // find comma or end of array
                 size_t j = i + 1;
@@ -536,7 +560,6 @@ Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, J
 
         
             if (tokens[i].type != JSON_TokenType_ArrayEnd) {
-                printf("Start: %d, End: %d, i: %d\n", start, end, i);
                 return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
             }
 

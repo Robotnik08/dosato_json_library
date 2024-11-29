@@ -1,0 +1,17 @@
+import "json"
+
+
+make object obj = {
+    "arr": [1, 2, 3, 44],
+    "obj": {
+        "key": "value",
+        "obj2": {
+            "key2": "value2"
+        }
+    },
+    "num": 8,
+    "bool": true
+}
+
+do sayln(json_to_string(obj, true))
+do sayln(json_parse(json_to_string(obj)))
