@@ -23,11 +23,6 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
     char* string = malloc(1);
     string[0] = '\0';
 
-    for (int i = 0; i < depth; i++) {
-        string = realloc(string, strlen(string) + 4);
-        strcat(string, "   ");
-    }   
-
     switch (value.type) {
         case TYPE_OBJECT: {
             for (size_t i = 0; i < count; i++) {
@@ -41,6 +36,12 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
 
             string = realloc(string, strlen(string) + 2);
             strcat(string, "{");
+
+            if (formatted) {
+                string = realloc(string, strlen(string) + 10);
+                strcat(string, "\n");
+            }
+
             ValueObject* object = AS_OBJECT(value);
             for (size_t i = 0; i < object->count; i++) {
                 char* new_str = COPY_STRING(object->keys[i]);
@@ -62,21 +63,28 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
                     }
                 }
 
+                if (formatted) {
+                    for (int j = 0; j < depth + 1; j++) {
+                        string = realloc(string, strlen(string) + 10);
+                        strcat(string, "\t");
+                    }
+                }
+
                 string = realloc(string, strlen(string) + strlen(new_str) + 5);
                 strcat(string, "\"");
                 strcat(string, new_str);
                 strcat(string, "\":");
+                free(new_str);
                 if (formatted) {
-                    string = realloc(string, strlen(string) + 2);
+                    string = realloc(string, strlen(string) + 10);
                     strcat(string, " ");
                 }
-                free(new_str);
 
                 char* valueString = ObjectToStringSafe(object->values[i], pointers, count, formatted, depth + 1);
                 if (valueString == (char*)-1) {
                     return (char*)-1;
                 }
-                string = realloc(string, strlen(string) + strlen(valueString) + 3);
+                string = realloc(string, strlen(string) + strlen(valueString) + 4);
                 strcat(string, valueString);
                 if (i < object->count - 1) {
                     strcat(string, ",");
@@ -84,10 +92,17 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
                 free(valueString);
                 
                 if (formatted) {
-                    string = realloc(string, strlen(string) + 2);
+                    string = realloc(string, strlen(string) + 10);
                     strcat(string, "\n");
                 }
             }
+            if (formatted) {
+                for (int j = 0; j < depth; j++) {
+                    string = realloc(string, strlen(string) + 10);
+                    strcat(string, "\t");
+                }
+            }
+
             string = realloc(string, strlen(string) + 2);
             strcat(string, "}");
             break;
@@ -111,10 +126,14 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
                 if (valueString == (char*)-1) {
                     return (char*)-1;
                 }
-                string = realloc(string, strlen(string) + strlen(valueString) + 3);
+                string = realloc(string, strlen(string) + strlen(valueString) + 4);
                 strcat(string, valueString);
                 if (i < array->count - 1) {
                     strcat(string, ",");
+                    if (formatted) {
+                        string = realloc(string, strlen(string) + 10);
+                        strcat(string, " ");
+                    }
                 }
                 free(valueString);
             }

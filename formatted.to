@@ -1,6 +1,5 @@
 import "json"
 
-
 make object obj = {
     "arr": [1, 2, 3, 44],
     "obj": {
@@ -13,5 +12,5 @@ make object obj = {
     "bool": true
 }
 
-do sayln(json_to_string(obj, true))
-do sayln(json_parse(json_to_string(obj)))
+do write("test.json", json_to_string(obj, true))
+do sayln(json_parse(read("test.json")))
