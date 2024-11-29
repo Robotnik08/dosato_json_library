@@ -14,13 +14,19 @@ make object obj = json_parse("{\"key\": \"value\"}")
 do sayln(obj->key) // value
 ```
 
-### `string json_stringify(object obj)`
+### `string json_stringify(object obj, bool formatted = false)`
 
 This function takes a Dosato object and returns a JSON string.
 
 ```dosato
 make object obj = {
-    key = "value"
+    key: "value"
 }
-do sayln(obj->key)
+do sayln(json_stringify(obj, false)) // {"key":"value"}
+do sayln(json_stringify(obj, true)) 
+/* 
+{
+    "key": "value"
+}
+*/
 ```
