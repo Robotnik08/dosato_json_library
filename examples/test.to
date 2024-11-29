@@ -1,5 +1,4 @@
-// import your library
-import "json"
+import "../json" // import json library
 
 make json_obj = {
     "hello": "worl\nd",

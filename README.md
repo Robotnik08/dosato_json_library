@@ -2,6 +2,19 @@
 
 This library is used to turn parse JSON strings into Dosato objects and vice versa.
 
+## Compilation
+
+To compile the library, run the following command:
+
+```bash
+make
+```
+
+This will create a `json.dll` or `json.so` file that can be imported into Dosato programs.
+
+## Usage
+
+Theres a few examples in the `examples` directory that show how to use the library.
 
 ## Specifications
 
