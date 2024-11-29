@@ -11,5 +11,109 @@ make json_obj = {
 
 do sayln(json_to_string(json_obj))
 do sayln(json_parse(
-"{\"hello\" : \"world\",    \"arr\":[1    ,2,3   ,44],\"obj\":{\"key\":\"value\"}}"
+`\{"hello" : "world", "num": 8, "bool": true, "bool2": false, "null": null, "arr":[1    ,2,3   ,44],"obj":\{"key":"value"}}`
+))
+
+do sayln(json_parse(
+`\{"test": [1,2,3,4,5,6,7,8,9,10]}`
+))
+
+do sayln(json_parse(
+`\{"test": [1,2,3,4,5,6,7,8,9,10], "test2": [1,2,3,4,5,6,7,8,9,10]}`
+))
+
+do sayln(json_parse(
+`\{"test": [[1,2,3,4,5,6,7,8,9,10],2,3,4,[1,2,3,4,5,6,7,8,9,10],6,7,8,9,[1,2,3,4,5,6,7,8,9,10]], "test2": null, "test3": [1,2,3,4,5,6,7,8,9,10]}`
+))
+
+do sayln(json_parse(
+`[1, 2, 3, 4]`
+))
+
+do sayln(json_parse(
+`1`
+))
+
+do sayln(json_parse(
+`"string"`
+))
+
+do sayln(json_parse(
+`true`
+))
+
+do sayln(json_parse(
+`false`
+))
+
+do sayln(json_parse(
+`null`
+))
+
+// nested objects
+do sayln(json_parse(
+`\
+\{
+    "hello": "world",
+    "obj": \{
+        "key": "value",
+        "obj2": \{
+            "key2": "value2"
+        }
+    }
+}`
+))
+
+do sayln(json_parse(
+`[\{}, \{}, \{"a": "a"}, \{}]`
+))
+
+
+// complex object with NESTED arrays, objects, strings, numbers (floating and ints), booleans, and null
+do sayln(json_parse(
+`
+\{
+    "hello": "world",
+    "num": 8,
+    "bool": true,
+    "bool2": false,
+    "null": null,
+    "arr": [1, 2, 3, 44],
+    "obj": \{
+        "key": "value"
+    },
+    "arr2": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "obj2": \{
+        "key2": "value2",
+        "arr3": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "obj3": \{
+            "key3": "value3",
+            "arr4": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "obj4": \{
+                "key4": "value4",
+                "arr5": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                "obj5": \{
+                    "key5": "value5",
+                    "arr6": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                    "obj6": \{
+                        "key6": "value6",
+                        "arr7": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                        "obj7": \{
+                            "key7": "value7",
+                            "arr8": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                            "obj8": \{
+                                "key8": "value8",
+                                "arr9": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                                "obj9": \{
+                                    "key9": "value9",
+                                    "arr10": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`
 ))

@@ -312,6 +312,7 @@ Value string_to_json(char* str, int length) {
         tokens[token_count++] = (JSON_Token){str + i, length, type}; \
     } while (0)
 
+    printf("String: %s\n", str);
     // tokenize the string
     for (size_t i = 0; i < length; i++) {
         switch (str[i]) {
@@ -337,7 +338,7 @@ Value string_to_json(char* str, int length) {
                 break;
             }
             case 't': {
-                if (i + 4 < length && strncmp(str + i, "true", 4) == 0) {
+                if (i + 4 <= length && strncmp(str + i, "true", 4) == 0) {
                     ADD_TOKEN(JSON_TokenType_Boolean, 4);
                     i += 3;
                 } else {
@@ -346,7 +347,7 @@ Value string_to_json(char* str, int length) {
                 break;
             }
             case 'f': {
-                if (i + 5 < length && strncmp(str + i, "false", 5) == 0) {
+                if (i + 5 <= length && strncmp(str + i, "false", 5) == 0) {
                     ADD_TOKEN(JSON_TokenType_Boolean, 5);
                     i += 4;
                 } else {
@@ -355,7 +356,7 @@ Value string_to_json(char* str, int length) {
                 break;
             }
             case 'n': {
-                if (i + 4 < length && strncmp(str + i, "null", 4) == 0) {
+                if (i + 4 <= length && strncmp(str + i, "null", 4) == 0) {
                     ADD_TOKEN(JSON_TokenType_Null, 4);
                     i += 3;
                 } else {
@@ -369,6 +370,10 @@ Value string_to_json(char* str, int length) {
                 while (j < length && (str[j] == '-' || (str[j] >= '0' && str[j] <= '9') || str[j] == '.')) {
                     j++;
                 }
+                if (j == i) {
+                    printf("Unexpected token: %c\n", str[i]);
+                    return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                }
                 ADD_TOKEN(JSON_TokenType_Number, j - i);
                 i = j - 1;
                 break;
@@ -379,18 +384,66 @@ Value string_to_json(char* str, int length) {
     #undef ADD_TOKEN
 
     // parse the tokens
-    Value value = parse_tokens(tokens, token_count);
+
+    // first type
+    JSON_NodeType type = JSON_NodeType_Object;
+    switch(tokens[0].type) {
+        case JSON_TokenType_ObjectStart: {
+            type = JSON_NodeType_Object;
+            break;
+        }
+        case JSON_TokenType_ArrayStart: {
+            type = JSON_NodeType_Array;
+            break;
+        }
+        case JSON_TokenType_String: {
+            type = JSON_NodeType_String;
+            if (token_count != 1) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+            break;
+        }
+        case JSON_TokenType_Number: {
+            type = JSON_NodeType_Number;
+            if (token_count != 1) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+            break;
+        }
+        case JSON_TokenType_Boolean: {
+            type = JSON_NodeType_Boolean;
+            if (token_count != 1) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+            break;
+        }
+        case JSON_TokenType_Null: {
+            type = JSON_NodeType_Null;
+            if (token_count != 1) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+            break;
+        }
+        default: {
+            return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+        }
+    }
+
+    
+    Value value = parse_tokens(tokens, token_count, 0, token_count - 1, type);
 
     return value;
 }
 
-#define SKIP_BLOCK do { \
+#define SKIP_BLOCK(i) do { \
     size_t block_count = 1; \
     JSON_TokenType block_type = tokens[i].type; \
     if (block_type == JSON_TokenType_ObjectStart) { \
         block_type = JSON_TokenType_ObjectEnd; \
     } else if (block_type == JSON_TokenType_ArrayStart) { \
         block_type = JSON_TokenType_ArrayEnd; \
+    } else { \
+        break; \
     } \
     while (block_count > 0) { \
         i++; \
@@ -403,14 +456,243 @@ Value string_to_json(char* str, int length) {
             block_count--; \
         } \
     } \
+    if (tokens[i].type != block_type) { \
+        return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN); \
+    } \
 } while (0)
 
-Value parse_tokens(JSON_Token* tokens, size_t count) {
+Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, JSON_NodeType type) {
     if (count == 0) {
+        PRINT_ERROR("%s", "Empty Json String.\n");
         return BUILD_EXCEPTION(E_EMPTY_MESSAGE);
     }
 
-    size_t i = 0;
+    size_t i = start;
+    if (i == count) {
+        return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+    }
+
+    switch (type) {
+        case JSON_NodeType_Array: {
+            // check if array is correct
+            if (tokens[i].type != JSON_TokenType_ArrayStart) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+
+            ValueArray* array = malloc(sizeof(ValueArray));
+            init_ValueArray(array);
+
+            while (i < end - 1) {
+                // find comma or end of array
+                size_t j = i + 1;
+                while (j < count && tokens[j].type != JSON_TokenType_Comma && tokens[j].type != JSON_TokenType_ArrayEnd) {
+                    SKIP_BLOCK(j);
+                    j++;
+                }
+
+                if (j == i + 1) {
+                    return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                }
+
+                JSON_NodeType value_type = JSON_NodeType_Object;
+                switch(tokens[i + 1].type) {
+                    case JSON_TokenType_ObjectStart: {
+                        value_type = JSON_NodeType_Object;
+                        break;
+                    }
+                    case JSON_TokenType_ArrayStart: {
+                        value_type = JSON_NodeType_Array;
+                        break;
+                    }
+                    case JSON_TokenType_String: {
+                        value_type = JSON_NodeType_String;
+                        break;
+                    }
+                    case JSON_TokenType_Number: {
+                        value_type = JSON_NodeType_Number;
+                        break;
+                    }
+                    case JSON_TokenType_Boolean: {
+                        value_type = JSON_NodeType_Boolean;
+                        break;
+                    }
+                    case JSON_TokenType_Null: {
+                        value_type = JSON_NodeType_Null;
+                        break;
+                    }
+                    default: {
+                        return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                    }
+                }
+
+                Value value = parse_tokens(tokens, count, i + 1, j - 1, value_type);
+                if (value.type == TYPE_EXCEPTION) {
+                    return value;
+                }
+                write_ValueArray(array, value);
+
+                i = j;
+            }
+
+        
+            if (tokens[i].type != JSON_TokenType_ArrayEnd) {
+                printf("Start: %d, End: %d, i: %d\n", start, end, i);
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+
+            return BUILD_ARRAY(array);
+        }
+
+        case JSON_NodeType_Object: {
+            // check if object is correct
+            if (tokens[i].type != JSON_TokenType_ObjectStart) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+
+            if (tokens[i + 1].type == JSON_TokenType_ObjectEnd) {
+                ValueObject* object = malloc(sizeof(ValueObject));
+                init_ValueObject(object);
+                return BUILD_OBJECT(object);
+            }
+                
+            if (tokens[end].type != JSON_TokenType_ObjectEnd) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+
+            ValueObject* object = malloc(sizeof(ValueObject));
+            init_ValueObject(object);
+
+            while (i < end - 2) {
+                // find comma or end of object
+                size_t j = i + 1;
+                while (j < count && tokens[j].type != JSON_TokenType_Comma && tokens[j].type != JSON_TokenType_ObjectEnd) {
+                    SKIP_BLOCK(j);
+                    j++;
+                }
+
+
+                if (j == i) {
+                    return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                }
+
+                
+                if (tokens[i + 1].type != JSON_TokenType_String) {
+                    return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                }
+
+                i++;
+                char* key = malloc(tokens[i].length - 2);
+                strncpy(key, tokens[i].start + 1, tokens[i].length - 2);
+                key[tokens[i].length - 2] = '\0';
+
+                i++;
+
+                if (tokens[i].type != JSON_TokenType_Colon) {
+                    return BUILD_EXCEPTION(E_EXPECTED_COLON_OPERATOR);
+                }
+
+                i++;
+
+                JSON_NodeType value_type = JSON_NodeType_Object;
+                switch(tokens[i].type) {
+                    case JSON_TokenType_ObjectStart: {
+                        value_type = JSON_NodeType_Object;
+                        break;
+                    }
+                    case JSON_TokenType_ArrayStart: {
+                        value_type = JSON_NodeType_Array;
+                        break;
+                    }
+                    case JSON_TokenType_String: {
+                        value_type = JSON_NodeType_String;
+                        break;
+                    }
+                    case JSON_TokenType_Number: {
+                        value_type = JSON_NodeType_Number;
+                        break;
+                    }
+                    case JSON_TokenType_Boolean: {
+                        value_type = JSON_NodeType_Boolean;
+                        break;
+                    }
+                    case JSON_TokenType_Null: {
+                        value_type = JSON_NodeType_Null;
+                        break;
+                    }
+                    default: {
+                        return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                    }
+                }
+                
+                Value value = parse_tokens(tokens, count, i, j - 1, value_type);
+                if (value.type == TYPE_EXCEPTION) {
+                    return value;
+                }
+
+                write_ValueObject(object, key, value);
+
+                i = j;
+            }
+
+            if (tokens[i].type != JSON_TokenType_ObjectEnd) {
+                return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+            }
+
+            return BUILD_OBJECT(object);
+        }
+
+        case JSON_NodeType_String: {
+            char* str = malloc(tokens[i].length - 2);
+            strncpy(str, tokens[i].start + 1, tokens[i].length - 2);
+            str[tokens[i].length - 2] = '\0';
+
+            // replace escape characters
+            for (size_t j = 0; j < strlen(str); j++) {
+                if (str[j] == '\\') {
+                    switch (str[j]) {
+                        case '\"': str[j] = '\"'; break;
+                        case '\\': str[j] = '\\'; break;
+                        case 'n': str[j] = '\n'; break;
+                        case 'r': str[j] = '\r'; break;
+                        case 't': str[j] = '\t'; break;
+                    }
+                    // shift the string
+                    memmove(str + j + 1, str + j + 2, strlen(str) - j - 1);
+                }
+            }
+
+            return BUILD_STRING(str);
+        }
+
+        case JSON_NodeType_Number: {
+            char* str = malloc(tokens[i].length);
+            strncpy(str, tokens[i].start, tokens[i].length);
+            str[tokens[i].length] = '\0';
+
+            // check if token has a non-numeric character
+            for (size_t j = 0; j < strlen(str); j++) {
+                if (str[j] != '-' && str[j] != '.' && (str[j] < '0' || str[j] > '9')) {
+                    return BUILD_EXCEPTION(E_UNEXPECTED_TOKEN);
+                }
+            }
+
+            double num = atof(str);
+
+            return BUILD_DOUBLE(num);
+        }
+
+        case JSON_NodeType_Boolean: {
+            if (tokens[i].length == 4) {
+                return BUILD_BOOL(true);
+            } else if (tokens[i].length == 5) {
+                return BUILD_BOOL(false);
+            }
+        }
+
+        case JSON_NodeType_Null: {
+            return BUILD_NULL();
+        }
+    }
     
 
     return BUILD_NULL();
@@ -426,9 +708,11 @@ Value json_parse(ValueArray args, bool debug) {
     Value json_str = GET_ARG(args, 0);
     CAST_TO_STRING(json_str);
 
-    char* str = AS_STRING(json_str);
+    char* str = COPY_STRING(AS_STRING(json_str));
     // loop through the string and parse it
     Value value = string_to_json(str, strlen(str));
+
+    free(str);
 
     return value;
 }

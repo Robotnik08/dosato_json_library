@@ -27,6 +27,15 @@ typedef enum {
     JSON_TokenType_Comma
 } JSON_TokenType;
 
+typedef enum {
+    JSON_NodeType_Object,
+    JSON_NodeType_Array,
+    JSON_NodeType_String,
+    JSON_NodeType_Number,
+    JSON_NodeType_Boolean,
+    JSON_NodeType_Null
+} JSON_NodeType;
+
 typedef struct {
     char* start;
     size_t length;
@@ -36,7 +45,7 @@ typedef struct {
 char* ObjectToString (Value value);
 char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count);
 Value string_to_json(char* str, int length);
-Value parse_tokens(JSON_Token* tokens, size_t count);
+Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, JSON_NodeType type);
 
 
 
