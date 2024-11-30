@@ -313,7 +313,7 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
 }
 
 Value json_to_string(ValueArray args, bool debug) {
-    if (args.count > 2) {
+    if (args.count > 2 || args.count == 0) {
         return BUILD_EXCEPTION(E_WRONG_NUMBER_OF_ARGUMENTS);
     }
 
