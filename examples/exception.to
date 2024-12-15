@@ -1,0 +1,15 @@
+import "../json"
+
+make json = {
+    1: 1,
+    "1": 1
+}
+
+do sayln(json_to_string(json)) catch {}
+
+make circular = {
+    "circular": null
+}
+set circular->circular = circular
+
+do sayln(json_to_string(circular)) catch {}

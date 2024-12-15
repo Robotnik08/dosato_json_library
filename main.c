@@ -43,9 +43,21 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
             }
 
             ValueObject* object = AS_OBJECT(value);
+            char** keys = malloc(object->count * sizeof(char*));
             for (size_t i = 0; i < object->count; i++) {
-                char* new_str = COPY_STRING(object->keys[i]);
-
+                char* new_str = valueToString(object->keys[i], false);
+                for (size_t j = 0; j < i; j++) {
+                    if (strcmp(keys[j], new_str) == 0) {
+                        free(new_str);
+                        for (size_t k = 0; k < i; k++) {
+                            free(keys[j]);
+                        }
+                        free(keys);
+                        free(string);
+                        return (char*)-2;
+                    }
+                }
+                keys[i] = new_str;
                 // Escape the string
                 for (size_t j = 0; j < strlen(new_str); j++) {
                     if (new_str[j] == '\"' || new_str[j] == '\\' || new_str[j] == '\n' || new_str[j] == '\r' || new_str[j] == '\t') {
@@ -74,15 +86,18 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
                 strcat(string, "\"");
                 strcat(string, new_str);
                 strcat(string, "\":");
-                free(new_str);
                 if (formatted) {
                     string = realloc(string, strlen(string) + 10);
                     strcat(string, " ");
                 }
 
                 char* valueString = ObjectToStringSafe(object->values[i], pointers, count, formatted, depth + 1);
-                if (valueString == (char*)-1) {
-                    return (char*)-1;
+                if ((long long int)valueString < 0) {
+                    for (size_t j = 0; j <= i; j++) {
+                        free(keys[j]);
+                    }
+                    free(keys);
+                    return valueString;
                 }
                 string = realloc(string, strlen(string) + strlen(valueString) + 4);
                 strcat(string, valueString);
@@ -105,6 +120,10 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
 
             string = realloc(string, strlen(string) + 2);
             strcat(string, "}");
+            for (size_t i = 0; i < object->count; i++) {
+                free(keys[i]);
+            }
+            free(keys);
             break;
         }
 
@@ -112,7 +131,7 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
             for (size_t i = 0; i < count; i++) {
                 if ((*pointers)[i] == value.as.objectValue) {
                     free(string);
-                    return (char*)-1;
+                    return (char*)-2;
                 }
             }
             (*pointers) = realloc(*pointers, (count + 1) * sizeof(DosatoObject**));
@@ -122,9 +141,9 @@ char* ObjectToStringSafe (Value value, DosatoObject*** pointers, int count, bool
             strcat(string, "[");
             ValueArray* array = AS_ARRAY(value);
             for (size_t i = 0; i < array->count; i++) {
-                char* valueString = ObjectToStringSafe(array->values[i], pointers, count, formatted, -1);
-                if (valueString == (char*)-1) {
-                    return (char*)-1;
+                char* valueString = ObjectToStringSafe(array->values[i], pointers, count, formatted, depth);
+                if ((long long int)valueString < 0) {
+                    return valueString;
                 }
                 string = realloc(string, strlen(string) + strlen(valueString) + 4);
                 strcat(string, valueString);
@@ -333,6 +352,9 @@ Value json_to_string(ValueArray args, bool debug) {
 
     if (str == (char*)-1) {
         PRINT_ERROR("%s", "Attempting to parse circular reference.\n");
+        return BUILD_EXCEPTION(E_EMPTY_MESSAGE);
+    } else if (str == (char*)-2) {
+        PRINT_ERROR("%s", "String representation of key is found twice.\n");
         return BUILD_EXCEPTION(E_EMPTY_MESSAGE);
     }
 
@@ -668,10 +690,11 @@ Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, J
                 
                 Value value = parse_tokens(tokens, count, i, j - 1, value_type);
                 if (value.type == TYPE_EXCEPTION) {
+                    free(key);
                     return value;
                 }
 
-                write_ValueObject(object, key, value);
+                write_ValueObject(object, BUILD_STRING(key), value);
 
                 i = j;
             }
