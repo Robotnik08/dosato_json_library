@@ -707,7 +707,7 @@ Value parse_tokens(JSON_Token* tokens, size_t count, size_t start, size_t end, J
         }
 
         case JSON_NodeType_String: {
-            char* str = malloc(tokens[i].length - 2);
+            char* str = malloc(tokens[i].length);
             strncpy(str, tokens[i].start + 1, tokens[i].length - 2);
             str[tokens[i].length - 2] = '\0';
 
